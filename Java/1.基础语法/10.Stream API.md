@@ -1,0 +1,141 @@
+# Stream API (jdk8)
+
+Java 从 8 开始，不但引入了 Lambda 表达式，还引入了一个全新的流式 API：Stream API。它位于 `java.util.stream `包中。
+
+划重点：这个 Stream 不同于 java.io 的 InputStream 和 OutputStream，它代表的是**任意 Java 对象的序列**。这个 Stream 和 List 也不一样，List 存储的每个元素都是已经存储在内存中的某个 Java 对象，而 Stream 输出的元素可能并没有预先存储在内存中，而是实时计算出来的。
+
+```java
+// 全体自然数,无法使用List实现,因为内存不够
+List<BigInteger> list = ??? ;
+// Stream 实现
+Stream<BigInteger> naturals = createNaturalStream(); // 全体自然数
+Stream<BigInteger> streamNxN = naturals.map(n -> n.multiply(n)); // 全体自然数的平方
+
+//因为这个streamNxN也有无限多个元素，要打印它，必须首先把无限多个元素变成有限个元素，可以用limit()方法截取前100个元素，最后用forEach()处理每个元素，这样，我们就打印出了前100个自然数的平方：
+Stream<BigInteger> naturals = createNaturalStream();
+naturals.map(n -> n.multiply(n)) // 1, 4, 9, 16, 25...
+        .limit(100)
+        .forEach(System.out::println);
+```
+
+1. 可以“存储”有限个或无限个元素。这里的存储打了个引号，是因为元素有可能已经全部存储在内存中，也有可能是根据需要实时计算出来的。
+2. 一个 Stream 可以轻易地转换为另一个 Stream，而不是修改原 Stream 本身。 **惰性计算**的特点是：一个 Stream 转换为另一个 Stream 时，实际上只存储了转换规则，并没有任何计算发生。
+
+基本用法:
+
+```java
+int result = createNaturalStream() // 创建Stream
+             .filter(n -> n % 2 == 0) // 任意个转换
+             .map(n -> n * n) // 任意个转换
+             .limit(100) // 任意个转换
+             .sum(); // 最终计算结果
+```
+
+# 创建
+
+```java
+Stream.of(); //传入可变参数即创建了一个能输出确定元素的Stream
+Arrays.stream() // 基于一个数组或者Collection
+List.of().stream() // 基于一个Collection
+Stream<String> s = Stream.generate(Supplier<String> sp); // 基于Supplier
+
+try (Stream<String> lines = Files.lines(Paths.get("/path/to/file.txt"))) {
+    ...
+    // Files类的lines()方法可以把一个文件变成一个Stream，每个元素代表文件的一行内容
+}
+
+// 正则表达式的Pattern对象有一个splitAsStream()方法，可以直接把一个长字符串分割成Stream序列而不是数组
+Pattern p = Pattern.compile("\\s+");
+Stream<String> s = p.splitAsStream("The quick brown fox jumps over the lazy dog");
+s.forEach(System.out::println);
+
+/**
+因为Java的范型不支持基本类型，所以我们无法用Stream<int>这样的类型，会发生编译错误。为了保存int，只能使用String<Integer>，但这样会产生频繁的装箱、拆箱操作。为了提高效率，Java标准库提供了IntStream、LongStream和DoubleStream这三种使用基本类型的Stream，它们的使用方法和范型Stream没有大的区别，设计这三个Stream的目的是提高运行效率
+ */
+// 将int[]数组变为IntStream:
+IntStream is = Arrays.stream(new int[] { 1, 2, 3 });
+// 将Stream<String>转换为LongStream:
+LongStream ls = List.of("1", "2", "3").stream().mapToLong(Long::parseLong);
+```
+
+# 转换
+
+Stream.map()是 Stream 最常用的一个转换方法，它把一个 Stream 转换为另一个 Stream
+
+```java
+// 利用map()，不但能完成数学计算，对于字符串操作，以及任何Java对象都是非常有用的。
+Stream<Integer> s = Stream.of(1, 2, 3, 4, 5);
+Stream<Integer> s2 = s.map(n -> n * n); // 计算平方
+```
+
+Stream.filter()是 Stream 的另一个常用转换方法。
+
+所谓 filter()操作，就是对一个 Stream 的所有元素一一进行测试，不满足条件的就被“滤掉”了，剩下的满足条件的元素就构成了一个新的 Stream。
+
+```java
+Stream<Integer> s = Stream.of(1, 2, 3, 4, 5);
+Stream<Integer> s2 = s.map(n -> n>3); // 获取大于3的序列
+```
+
+# 聚合
+
+map()和 filter()都是 Stream 的转换方法，而 Stream.reduce()则是 Stream 的一个聚合方法，它可以把一个 Stream 的所有元素按照聚合函数聚合成一个结果。
+
+reduce()方法传入的对象是 BinaryOperator 接口，它定义了一个 apply()方法，负责把上次累加的结果和本次的元素进行运算，并返回累加的结果：
+
+```java
+Stream<Integer> s = Stream.of(1, 2, 3, 4, 5);
+// 计算序列求和, reduce(初始值,(上次计算的值,下一个元素)->{})
+int sum = stream.reduce(0,(acc, n) -> acc + n);
+// 如果去掉初始值，我们会得到一个Optional<Integer>：
+Optional<Integer> opt = stream.reduce((acc, n) -> acc + n);
+if (opt.isPresent) {
+  // 这是因为Stream的元素有可能是0个，这样就没法调用reduce()的聚合函数了，因此返回Optional对象，需要进一步判断结果是否存在。
+    System.out.println(opt.get());
+}
+// 除了可以对数值进行累积计算外，灵活运用reduce()也可以对Java对象进行操作。
+
+```
+
+collect() 将流转换为集合
+
+```java
+List<Integer> list = Stream.of(1, 2, 3, 4, 5).collect(Collectors.toList()); // 可以把Stream的每个元素收集到List中
+collect(Collectors.toSet()) // 可以把Stream的每个元素收集到Set中
+collect(Collectors.toMap(n->n,n->n));
+
+collect(Collectors.groupingBy(n->n,Collectors.toList())); // 分组
+```
+
+其他
+
+```Java
+count()：用于返回元素个数；
+max(Comparator<? super T> cp)：找出最大元素；
+min(Comparator<? super T> cp)：找出最小元素。
+
+针对IntStream、LongStream和DoubleStream，还额外提供了以下聚合方法：
+
+sum()：对所有元素求和；
+average()：对所有元素求平均数。
+```
+
+# 其他
+
+```java
+sorted() // 排序 每个元素必须实现Comparable接口,自定义排序，传入指定的Comparator
+distinct() //去重
+skip() // 跳过当前Stream的前N个元素
+limit() // 截取当前Stream最多前N个元素
+concat() // 合并
+flatMap() // 转换集合元素
+parallel() // 并行处理
+
+还有一些方法，用来测试Stream的元素是否满足以下条件：
+
+boolean allMatch(Predicate<? super T>)：测试是否所有元素均满足测试条件；
+boolean anyMatch(Predicate<? super T>)：测试是否至少有一个元素满足测试条件。
+
+最后一个常用的方法是forEach()，它可以循环处理Stream的每个元素，我们经常传入System.out::println来打印Stream的元素：
+forEach(System.out::println)
+```

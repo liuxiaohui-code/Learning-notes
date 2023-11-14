@@ -1,0 +1,320 @@
+# Logback
+
+[中文手册](https://github.com/YLongo/logback-chinese-manual)
+
+`Logback` ，一个“可靠、通用、快速而又灵活的 Java 日志框架”。
+
+`Logback` 当前分成三个模块：`logback-core`，`logback-classic` 和 `logback-access`。
+
+logback-core 是其它两个模块的基础模块。
+logback-classic 是 log4j 的一个改良版本，完整实现了 SLF4J API。
+logback-access 模块与 Servlet 容器集成提供通过 Http 来访问日志的功能。
+
+Logback 依赖配置文件 logback.xml，当然也支持 groovy 方式。
+
+默认情况下，Spring Boot 会用 Logback 来记录日志，并用 INFO 级别输出到控制台。
+
+日志级别（log level）：用来控制日志信息的输出，从高到低分为共分为七个等级:
+
+A：off 最高等级，用于关闭所有日志记录。
+B：fatal 指出每个严重的错误事件将会导致应用程序的退出。
+C：error 指出虽然发生错误事件，但仍然不影响系统的继续运行。
+D：warm 表明会出现潜在的错误情形。
+E：info 一般和在粗粒度级别上，强调应用程序的运行全程。
+F：debug 一般用于细粒度级别上，对调试应用程序非常有帮助。
+G：all 最低等级，用于打开所有日志记录。
+
+# 依赖
+
+```xml
+<dependency>
+    <groupId>ch.qos.logback</groupId>
+    <artifactId>logback-classic</artifactId>
+    <version>1.2.3</version>
+</dependency>
+
+<!--引入以上依赖，会自动引入以下jar
+	logback-classic.x.x.x.jar
+	logback-core.x.x.x.jar
+	slf4j-api-x.x.x.jar
+-->
+```
+
+# logback.xml
+
+在工程 resources 目录下建立 logback.xml
+
+1. logback 首先会试着查找 logback.groovy 文件;
+2. 当没有找到时，继续试着查找 logback-test.xml 文件;
+3. 当没有找到时，继续试着查找 logback.xml 文件;
+4. 如果仍然没有找到，则使用默认配置（打印到控制台）。
+
+## 配置解析
+
+### configuration 基本信息
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  scan="true" 此属性设置为true时，配置文件如果发生改变，将会被重新加载，默认值为true
+  scanPeriod: 设置监测配置文件是否有修改的时间间隔，如果没有给出时间单位，默认单位是毫秒。当scan为true时，此属性生效。默认的时间间隔为1分钟。
+  debug: 当此属性设置为true时，将打印出logback内部日志信息，实时查看logback运行状态。默认值为false。
+ -->
+<configuration scan="true" scanPeriod="60 seconds" debug="false" packagingData="true">
+
+	<!--
+    用来设置上下文名称，每个logger都关联到logger上下文，默认上下文名称为default。但可以使用<contextName>设置成其他名字，用于区分不同应用程序的记录。一旦设置，不能修改。
+  -->
+  <contextName>myApplicationName</contextName>
+  <property name="LOG_HOME" value="${catalina.base}/logs/cloudTest/" />
+	<!--获取时间戳字符串，他有两个属性key和datePattern
+  key: 标识此<timestamp> 的名字；
+  datePattern: 设置将当前时间（解析配置	文件的时间）转换为字符串的模式，遵循	java.txt.SimpleDateFormat的格式。这个属性很少使用	-->
+  <timestamp key="keyValue" datePattern="yyyy-MM-dd" />
+</configuration>
+```
+
+#### 自定义属性
+
+${变量名} 的方式可以获取环境变量|系统传递属性(程序启动后附加的-D 参数)|以及以下定义的参数
+
+```xml
+<!-- 通过 ${LOG_HOME} 访问自定义属性-->
+<property name="LOG_HOME" value="${catalina.base}/logs/cloudTest/" />
+<!-- 自定义类,继承 PropertyDefinerBase 类,重写 getPropertyValue() 方法,返回值为值-->
+<define name="localIP" class="MyPropertyDefinerBase"/>
+<!-- 实现LoggerContextListener接口的类，在start方法中，将需要设置的属性设置到logback的Context中， -->
+<contextListener class="cn.jboost.common.LoggerStartupListener"/>
+```
+
+```java
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.spi.LoggerContextListener;
+import ch.qos.logback.core.Context;
+import ch.qos.logback.core.spi.ContextAwareBase;
+import ch.qos.logback.core.spi.LifeCycle;
+
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.UUID;
+
+/***
+ * 第二种实现方式
+ * @Author ronwxy
+ * @Date 2019/8/20 18:45
+ */
+public class LoggerStartupListener extends ContextAwareBase
+    implements LoggerContextListener, LifeCycle {
+
+    private boolean started = false;
+
+    @Override
+    public void start() {
+        if (started) {
+            return;
+        }
+        Context context = getContext();
+        context.putProperty("localIP", getUniqName());
+        started = true;
+    }
+
+    private String getUniqName() {
+        String localIp = null;
+        try {
+            localIp = InetAddress.getLocalHost().getHostAddress();
+        } catch (UnknownHostException e) {
+            //LOG.error("fail to get ip...", e);
+        }
+        String uniqName = UUID.randomUUID().toString().replace("-", "");
+        if (localIp != null) {
+            uniqName = localIp + "-" + uniqName;
+        }
+        return uniqName;
+    }
+//省略了其它函数
+```
+
+### appender 日志规则
+
+```xml
+<configuration>
+
+</configuration>
+```
+
+#### 格式化日志输出
+
+1. %date{yyyy-MM-dd HH:mm:ss.SSS} 时间,简写%d
+2. %thread %t 线程名
+3. %-5level 日志级别,从左显示 5 个字符宽度
+4. %p %le %level 输出日志级别。
+5. %c{} %lo{} %logger{15} 类全限定名,{从后截取 15 个字符}
+6. %m %msg %message 日志内容
+7. %n 换行
+8. %red() 彩色日志 %颜色名(要染色的部分) yello boldMagenta hightlight cyan
+9. %file %F 文件名 \\(%file:%line\\) 可以点击到达输出日志位置
+10. %line %L 行数
+11. %class %C:输出日志讯息所属的类的全名
+12. %caller{1} 输出生成日志的调用者的位置信息，整数选项表示输出信息深度。文件点击跳转
+13. %M %method 输出执行日志请求的方法名
+14. %r %relative 输出从程序启动到创建日志记录的时间，单位是毫秒
+15. %replace(p){r, t} p 为日志内容，r 是正则表达式，将 p 中符合 r 的内容替换为 t 。
+16. 格式修饰符：
+    1. %-number 左对齐（最小宽度）
+    2. %.number 最大宽度,超出从头截断
+    3. %.-number 最大宽度,超出从尾截断
+
+例如， "%replace(%msg){'\s', ''}"
+
+```xml
+<encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+  <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%logger{15}:%line] - %msg%n</pattern>
+  <charset>UTF-8</charset>
+</encoder>
+```
+
+#### 控制台输出
+
+```xml
+  <!--
+    name: 唯一标识
+    class: appender的全限定名,
+      ch.qos.logback.core.ConsoleAppender 控制台输出
+      ch.qos.logback.core.rolling.RollingFileAppender 滚动记录文件
+   -->
+<appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder ></encoder>
+    <!-- 默认 out,可以设置为err -->
+    <target>System.out</target>
+</appender>
+```
+
+#### 日志写入文件
+
+```xml
+  <!-- 写入到一个文件 -->
+  <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+    <file>testFile.log</file>
+    <!-- 如果是 true，日志被追加到文件结尾，如果是 false，清空现存文件，默认是true -->
+    <append>true</append>
+    <encoder>
+      <pattern>%-4relative [%thread] %-5level %logger{35} - %msg%n</pattern>
+    </encoder>
+    <!-- 如果是 true，日志会被安全的写入文件，即使其他的FileAppender也在向此文件做写入操作，效率低，默认是 false 。 -->
+    <prudent>false</prudent>
+  </appender>
+```
+
+#### 过滤器
+
+```xml
+<!-- 日志等级过滤器 -->
+    <filter class="ch.qos.logback.classic.filter.LevelFilter">
+      <!-- 设置过滤级别 -->
+      <level>INFO</level>
+      <!-- 用于配置符合过滤条件的操作 -->
+      <onMatch>ACCEPT</onMatch>
+      <!-- 用于配置不符合过滤条件的操作 -->
+      <onMismatch>DENY</onMismatch>
+    </filter>
+    <!-- 临界值过滤器，过滤掉低于指定临界值的日志。当日志级别等于或高于临界值时，过滤器返回NEUTRAL；当日志级别低于临界值时，日志会被拒绝。 -->
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <!-- 过滤掉所有低于INFO级别的日志 -->
+      <level>INFO</level>
+    </filter>
+    <!-- 求值过滤器 需要额外的两个JAR包，commons-compiler.jar和janino.jar -->
+    <filter class="ch.qos.logback.core.filter.EvaluatorFilter">
+      <evaluator> <!-- 默认为 ch.qos.logback.classic.boolex.JaninoEventEvaluator -->
+        <expression>return message.contains("billing");</expression>
+      </evaluator>
+      <OnMatch>ACCEPT </OnMatch>
+      <OnMismatch>DENY</OnMismatch>
+    </filter>
+```
+
+#### 滚动记录文件
+
+```xml
+<!-- RollingFileAppender 滚动记录文件，先将日志记录到指定文件，当符合某个条件时，将日志记录到其他文件。 -->
+  <appender name="file" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <!-- 如果是 true，日志被追加到文件结尾，如果是 false，清空现存文件，默认是true -->
+    <append>true</append>
+
+    <!-- 当为true时，不支持FixedWindowRollingPolicy。支持TimeBasedRollingPolicy，但是有两个限制，1.不支持也不允许文件压缩，2.不能设置file属性，必须留空 -->
+    <prudent></prudent>
+    <!-- 对记录日志进行格式化 -->
+    <encoder></encoder>
+    <!-- 如果当前活动文件的大小超过指定大小会触发当前活动文件滚动。只有一个节点:<maxFileSize>:当前活动日志文件的大小，默认值是10MB。-->
+    <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+      <maxFileSize>5MB</maxFileSize>
+    </triggeringPolicy>
+    <!-- 滚动策略    -->
+    <rollingPolicy></rollingPolicy>
+  </appender>
+```
+
+##### 滚动策略: 日志大小
+
+```xml
+<rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <!-- 文件名: 路径/文件名 可以使用通配符 %d日期 %i 计数器 -->
+      <fileNamePattern>${LOG_HOME}/mylog-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+      <!-- 每个文件最多5MB，保存60天的历史记录，但最多20GB -->
+      <maxFileSize>5MB</maxFileSize>
+      <maxHistory>60</maxHistory>
+      <totalSizeCap>20GB</totalSizeCap>
+    </rollingPolicy>
+```
+
+##### 滚动策略: 时间
+
+```xml
+<!-- 根据时间的滚动策略 ch.qos.logback.core.rolling.TimeBasedRollingPolicy  每天生成一个日志文件，保存30天的-->
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <!-- 必要节点，文件名必须包含“%d”转换符， “%d”可以包含一个 java.text.SimpleDateFormat指定的时间格式,默认格式是 yyyy-MM-dd -->
+      <FileNamePattern>d://log/business.log.%d.log</FileNamePattern>
+      <maxHistory>30</maxHistory>
+    </rollingPolicy>
+```
+
+##### 滚动策略: 固定窗口
+
+```xml
+<!-- 固定窗口的滚动策略 -->
+    <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
+      <!-- 必须包含“%i” -->
+      <fileNamePattern>tests.%i.log.zip</fileNamePattern>
+      <minIndex>1</minIndex>
+      <!-- 最大为12 -->
+      <maxIndex>3</maxIndex>
+    </rollingPolicy>
+```
+
+### logger 针对某包使用某规则
+
+```xml
+<configuration>
+  <!--
+    name: 包名,此包下的类使用 log 日志方法都使用以下规则
+    level: 捕获的日志级别,并没设置打印级别，继承他的上级的日志级别(root)
+    additivity: 默认为true，将此logger的打印信息向上级传递(com.z7.springcloud.service-...- root) 日志信息向上传递后，日志级别会由下级的level来决定！所以即使info日志也会打印！！
+   -->
+  <logger name="com.z7.springcloud.service.WebSocketServer" level="info" additivity="false">
+    <appender-ref ref="STDOUT" />
+  </logger>
+</configuration>
+```
+
+### root 最上级缺省信息
+
+```xml
+<configuration>
+  <root level="info">
+      <appender-ref ref="STDOUT" />
+  </root>
+</configuration>
+
+```
