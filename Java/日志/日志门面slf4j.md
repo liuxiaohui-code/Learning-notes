@@ -1,0 +1,172 @@
+# SLF4J
+
+SLF4J 全称 The Simple Logging Facade for Java，简单日志门面，这个不是具体的日志解决方案，而是通过门面模式提供一些 Java Logging API，类似于 JCL。题外话，作者当时创建 SLF4J 的目的就是为了替代 Jakarta Commons Logging（JCL）。
+
+SLF4J 提供的核心 API 是一些接口以及一个 `LoggerFactory` 的工厂类。在使用 SLF4J 的时候，不需要在代码中或配置文件中指定你打算使用哪个具体的日志系统，可以在部署的时候不修改任何配置即可接入一种日志实现方案，在编译时静态绑定真正的 Log 库。
+
+使用 SLF4J 时，如果你需要使用某一种日志实现，那么你必须选择正确的 SLF4J 的 jar 包的集合（各种桥接包）。SLF4J 提供了统一的记录日志的接口，只要按照其提供的方法记录即可，最终日志的格式、记录级别、输出方式等通过具体日志系统的配置来实现，因此可以在应用中灵活切换日志系统。
+
+`logback` 是 `slf4j-api` 的天然实现，不需要桥接包就可以使用。另外 slf4j 还封装了很多其他的桥接包，可以使用到其他的日志实现中，比如 slf4j-log4j12，就可以使用 log4j 进行底层日志输出，再比如 slf4j-jdk14，可以使用 JUL 进行日志输出。
+
+# 依赖与配置
+
+## 日志级别
+
+1 Fatal 导致应用程序终止的严重问题。
+2 ERROR 运行时错误
+3 WARNING 在大多数情况下，这种级别的错误是由于使用了已弃用的 API。
+4 INFO 运行时发生的事件。
+5 DEBUG 有关系统流程的信息。
+6 TRACE 有关系统流程的更多详细信息。
+
+## 依赖
+
+```xml
+<dependency>
+    <groupId>org.slf4j</groupId>
+    <artifactId>slf4j-api</artifactId>
+</dependency>
+```
+
+# 使用
+
+## 类与接口
+
+1. logger 接口,用于打印日志
+2. LoggerFactory 类, 用于为各种日志 API 生成记录器，例如 log4j，JUL，NOP 和简单记录器。
+3. Profiler 类,用于分析目的，它被称为穷人的探查器。使用它，程序员可以找出执行长时间任务所需的时间。
+   1. void start(String name) 此方法将启动一个新的子秒表(命名)，并停止较早的子秒表(或时间工具)。
+   2. TimeInstrument stop()此方法将停止最近的子秒表和全局秒表并返回当前的时间仪器。
+   3. void setLogger(Logger logger)此方法接受 Logger 对象并将指定的记录器与当前的 Profiler 相关联。
+   4. void log()记录与记录器关联的当前时间仪器的内容。
+   5. void print()打印当前时间工具的内容。
+
+## 入口
+
+```java
+Logger logger = LoggerFactory.getLogger("SampleLogger"); // 返回具有指定名称的Logger对象
+logger.info("Hi This is my first SLF4J program."); // 记录日志
+
+/**
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+
+slf4j 是一个日志门面,需要使用其他包实现,否则会报以上错误
+ */
+```
+
+## 使用流程
+
+1. 引入 slf4j 依赖
+2. 引入 slf4j 实现,如 logback
+3. 配置实现类
+4. 调用 slf4j 接口方法
+
+## 参数化日志输出
+
+需要在消息(String)中的任何位置使用占位符({})，稍后可以在对象形式中为占位符传递值，并使用逗号分隔消息和值。
+
+```java
+Integer age;
+Logger.info("At the age of {} I go to school.", age);
+
+logger.info("Old weight is {}. new weight is {}.", oldWeight, newWeight);
+
+```
+
+# slf4j 整合日志输出
+
+## java.util.logging.Logger
+
+将 JUL 日志整合到 slf4j 统一输出，需要引入 slf4j 提供的依赖包：
+
+```xml
+<dependency>
+    <groupId>org.slf4j</groupId>
+    <artifactId>jul-to-slf4j</artifactId>
+    <version>1.7.22</version>
+</dependency>
+```
+
+只引入依赖并不能整合 JUL 日志，该包里只是提供了一个 JUL 的 handler，仍旧需要通过 JUL 的配置文件进行配置，slf4j 绑定器（如 logback）上设置的日志级别等价于 JUL handler 上的日志级别，因此控制 JUL 的日志输出，日志级别仍旧分两个地方控制：JUL 配置文件《logging.properties》和 slf4j 绑定器的配置文件，比如《logback.xml》、《log4j2.xml》等。
+
+建立 jdk14-logger 的配置文件《logger.properties》，加入 handler 配置以及日志级别配置；
+handlers= org.slf4j.bridge.SLF4JBridgeHandler
+.level= ALL
+在启动程序或容器的时候加入 JVM 参数配置-Djava.util.logging.config.file = /path/logger.properties；当然也可以使用编程方式进行处理，可以在 main 方法或者扩展容器的 listener 来作为系统初始化完成；此种方式有些场景下不如配置 JVM 参数来的彻底，比如想代理 tomcat 的系统输出日志，编程方式就搞不定了。
+
+## org.apache.commons.logging.Log
+
+将 JCL 日志整合到 slf4j 统一输出，需要引入 slf4j 提供的依赖包：
+
+```xml
+<dependency>
+    <groupId>org.slf4j</groupId>
+    <artifactId>jcl-over-slf4j</artifactId>
+    <version>1.7.22</version>
+</dependency>
+```
+
+jcl-over-slf4j 包里所有类的根路径为 org.apache.commons.logging，也有 Log 和 LogFactory 类，相当于以重写 commons-logging 包的代价来实现对 JCL 的桥接。Log 与 commons-logging 包里的一模一样，LogFactory 的实现，代码写死使用的是 org.apache.commons.logging.impl.SLF4JLogFactory。
+
+commons-logging 包里默认使用的是 org.apache.commons.logging.impl.LogFactoryImpl。以这样的代价来实现桥接，可以实现无缝对接，不像 JUL 那样还得添加额外配置，但是有一个坏处就是需要处理类库冲突了。commons-logging 包和 jcl-over-slf4j 包肯定是不能共存的，需要将 commons-logging 包在 classpath 里排掉。
+
+题外话，因为 JCL 本身就支持通过配置文件《commons-logging.properties》绑定适配器，所以个人感觉更倾向于封装一个适配器的方式来支持，就像 commons-logging 包里的 org.apache.commons.logging.impl.Log4JLogger，这样更符合程序员的思维，明明白白。
+
+桥接包的命名也是很讲究的，覆写的这种，命名为 xxx-over-slf4j，如本例的 jcl-over-slf4j；纯桥接的，命名为 xxx-to-slf4j，如文章前面提到的 jul-to-slf4j。
+
+## org.apache.log4j.Logger
+
+将 log4j 日志整合到 slf4j 统一输出，需要引入 slf4j 提供的依赖包：
+
+```xml
+<dependency>
+    <groupId>org.slf4j</groupId>
+    <artifactId>log4j-over-slf4j</artifactId>
+    <version>1.7.22</version>
+</dependency>
+```
+
+看桥接包的名字就知道了，log4j-over-slf4j 肯定是覆写了 log4j:log4j 包，因此使用起来只需要引入依赖即可，不需要其他额外的配置。但是仍旧是要处理冲突的，log4j 包和 log4j-over-slf4j 是不能共存的哦。
+
+## org.apache.logging.log4j.Logger
+
+将 log4j2 日志整合到 slf4j 统一输出，slf4j 没有提供桥接包，但是 log4j2 提供了，原理是一样的，首先引入 log4j2 的桥接包：
+
+```xml
+<dependency>
+    <groupId>org.apache.logging.log4j</groupId>
+    <artifactId>log4j-to-slf4j</artifactId>
+    <version>2.6.2</version>
+</dependency>
+```
+
+log4j2 提供的依赖包有 org.apache.logging.log4j:log4j-api 和 org.apache.logging.log4j:log4j-core，其作用看包名就清楚了。log4j-core 是 log4j-api 的标准实现，同样 log4j-to-slf4j 也是 log4j-api 的一个实现。
+
+log4j-to-slf4j 用于将 log4j2 输出的日志桥接到 slf4j 进行实际的输出，作用上来讲，log4j-core 和 log4j-to-slf4j 是不能共存的，因为会存在两个 log4j2 的实现。
+
+经测试，就测试结果分析，共存也是木有问题的，何解？log4j2 加载 provider 的时候采用了优先级策略，即使找到多个也能决策出一个可用的 provider 来。在所有提供 log4j2 实现的依赖包中，都有一个 META-INF/log4j-provider.properties 配置文件，里面的 FactoryPriority 属性就是用来配置 provider 优先级的，幸运的是 log4j-to-slf4j（15）的优先级是高于 log4j-core（10）的，因此测试结果符合预期，log4j2 的日志桥接到了 slf4j 中进行输出。
+
+同样，为确保系统的确定性，不会因为 log4j2 的 provider 决策策略变更导致问题，建议还是要在 classpath 里排掉 log4j-core，log4j2 也是推荐这么做的。
+
+## SLF4J 结合 Logback
+
+当下最流行的用法，SLF4J 为使用场景最广泛的日志门面，加上 Logback 的天然实现，简单、统一、快速。
+
+需要引入第三方依赖：
+
+```xml
+<dependency>
+    <groupId>org.slf4j</groupId>
+    <artifactId>slf4j-api</artifactId>
+</dependency>
+<dependency>
+    <groupId>ch.qos.logback</groupId>
+    <artifactId>logback-core</artifactId>
+</dependency>
+<dependency>
+    <groupId>ch.qos.logback</groupId>
+    <artifactId>logback-classic</artifactId>
+</dependency>
+```

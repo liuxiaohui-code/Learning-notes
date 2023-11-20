@@ -1,4 +1,10 @@
-# 插件
+# vscode
+
+## 快捷键
+
+ctrl+shift+p vscode 命令行;去除':'可搜索工作空间文件;
+
+## 插件
 
 1. 翻译
    1. Comment Translate
@@ -9,8 +15,35 @@
 3. c++
 4. java
 5. go
+6. Text Edits 将选中文本转为大写/小写
+7. One Monokai Theme 主题
 
-# vue 安装
+## 配置
+
+### 自动换行
+
+```
+**文件>首选项>设置**
+Editor:Word Wrap
+```
+
+## 切换默认终端
+
+ctrl + shift +p
+
+> Select Default Profile
+> 选择目标“Command Prompt”
+> 快捷键（ctrl+` ）调出终端，如图所示已经默认 cmd
+
+## 搜索正则表达式
+
+(X\w+X)
+
+alt+r
+
+正则表达式用`()`包裹,替换时`$1`表示正则匹配的结果
+
+## vue 安装
 
 ```sh
 #1. vetur插件的安装
@@ -92,13 +125,6 @@ vue init webpack myvue
 
 其中 myvue 就是项目名称，根据喜好自己取。接着会出现一些配置项，可以根据需要配置，也可以默认，直接按回车。然后继续等待安装依赖项。完成之后，一个基本的 vue 项目就搭建完了。完成之后的 vscode 左边可以看到如下目录，其中 main.js 就是入口。
 
-# 自动换行
-
-```
-**文件>首选项>设置**
-Editor:Word Wrap
-```
-
 # 编译速度缓慢
 
 ```
@@ -142,18 +168,6 @@ ${fileExtname} 					当前打开的文件的后缀名
 ${cwd} 							the task runner's current working directory on startup 不知道怎么描述，这是原文解释，跟 cmd 里面的 cwd 是一样的
 ${lineNumber}  					当前打开的文件，光标所在的行数
 ```
-
-# 主题
-
-1. One Monokai Theme
-
-# 搜索正则表达式
-
-(X\w+X)
-
-alt+r
-
-正则表达式用`()`包裹,替换时`$1`表示正则匹配的结果
 
 # c/c++
 
@@ -235,17 +249,6 @@ alt+r
 VS Code 出于性能原因，对长行跳过令牌化。长行的长度可通过 “editor.maxTokenizationLineLength“ 进行配置
 
 **解决：管理 >> 设置 >> 搜索"editor.maxTokenizationLineLength" >> 输入 1000000000000000000000000000000000000**
-
-## 2.切换默认终端
-
-```shell
-ctrl + shift +p
-> Select Default Profile
-选择目标“Command Prompt”
-快捷键（ctrl+` ）调出终端，如图所示已经默认cmd
-
-
-```
 
 ## 3. 前端无法点击跳转@路径
 
